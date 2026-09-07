@@ -1,6 +1,7 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from app import create_app
+from app.utils.errors import AppError
 
 
 @pytest.fixture
@@ -10,28 +11,40 @@ def client():
         yield client
 
 
-EDUCATION_TEMPLATE = "You are an expert in education domain. Answer the following: {{userInput}}"
-
-
 class TestAskValidRequest:
+    @patch("app.routes.ask_routes.openai_service")
     @patch("app.routes.ask_routes.prompt_service")
-    def test_returns_200_with_prompt(self, mock_service, client):
-        mock_service.build_prompt.return_value = "You are an expert in education domain. Answer the following: What is photosynthesis?"
+    def test_returns_200_with_response(self, mock_prompt, mock_openai, client):
+        mock_prompt.build_prompt.return_value = "You are an expert in education domain. Answer the following: What is photosynthesis?"
+        mock_openai.get_chat_response.return_value = "Photosynthesis is the process by which plants convert sunlight into energy."
 
         response = client.post("/ask", json={"userInput": "What is photosynthesis?"})
 
         assert response.status_code == 200
         data = response.get_json()
-        assert "prompt" in data
-        assert "What is photosynthesis?" in data["prompt"]
+        assert "response" in data
+        assert "Photosynthesis" in data["response"]
 
+    @patch("app.routes.ask_routes.openai_service")
     @patch("app.routes.ask_routes.prompt_service")
-    def test_passes_user_input_to_service(self, mock_service, client):
-        mock_service.build_prompt.return_value = "final prompt"
+    def test_passes_prompt_to_openai_service(self, mock_prompt, mock_openai, client):
+        mock_prompt.build_prompt.return_value = "constructed prompt"
+        mock_openai.get_chat_response.return_value = "answer"
 
         client.post("/ask", json={"userInput": "test input"})
 
-        mock_service.build_prompt.assert_called_once_with("test input")
+        mock_prompt.build_prompt.assert_called_once_with("test input")
+        mock_openai.get_chat_response.assert_called_once_with("constructed prompt")
+
+    @patch("app.routes.ask_routes.openai_service")
+    @patch("app.routes.ask_routes.prompt_service")
+    def test_passes_user_input_to_prompt_service(self, mock_prompt, mock_openai, client):
+        mock_prompt.build_prompt.return_value = "prompt"
+        mock_openai.get_chat_response.return_value = "answer"
+
+        client.post("/ask", json={"userInput": "my question"})
+
+        mock_prompt.build_prompt.assert_called_once_with("my question")
 
 
 class TestAskMissingJson:
@@ -97,13 +110,36 @@ class TestAskEmptyUserInput:
         assert response.status_code == 400
 
 
-class TestAskServiceError:
+class TestAskPromptServiceError:
     @patch("app.routes.ask_routes.prompt_service")
     def test_returns_500_when_prompt_not_found(self, mock_service, client):
-        from app.utils.errors import AppError
         mock_service.build_prompt.side_effect = AppError("Education_Prompt not found", status_code=500)
 
         response = client.post("/ask", json={"userInput": "test"})
 
         assert response.status_code == 500
         assert "Education_Prompt not found" in response.get_json()["error"]
+
+
+class TestAskOpenAIServiceError:
+    @patch("app.routes.ask_routes.openai_service")
+    @patch("app.routes.ask_routes.prompt_service")
+    def test_returns_502_when_openai_fails(self, mock_prompt, mock_openai, client):
+        mock_prompt.build_prompt.return_value = "prompt"
+        mock_openai.get_chat_response.side_effect = AppError("Failed to get response from OpenAI", status_code=502)
+
+        response = client.post("/ask", json={"userInput": "test"})
+
+        assert response.status_code == 502
+        assert "OpenAI" in response.get_json()["error"]
+
+    @patch("app.routes.ask_routes.openai_service")
+    @patch("app.routes.ask_routes.prompt_service")
+    def test_returns_500_when_api_key_missing(self, mock_prompt, mock_openai, client):
+        mock_prompt.build_prompt.return_value = "prompt"
+        mock_openai.get_chat_response.side_effect = AppError("OpenAI API key not configured", status_code=500)
+
+        response = client.post("/ask", json={"userInput": "test"})
+
+        assert response.status_code == 500
+        assert "not configured" in response.get_json()["error"]

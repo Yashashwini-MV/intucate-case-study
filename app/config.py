@@ -7,6 +7,7 @@ class Config:
     MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
     MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "intucate")
     MONGODB_ENABLED = True
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 
 class DevelopmentConfig(Config):
