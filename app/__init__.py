@@ -13,6 +13,10 @@ def create_app(config_name=None):
         from app.config import Config
         app.config.from_object(Config)
 
+    if app.config.get("MONGODB_ENABLED", False):
+        from app.extensions import init_mongo
+        init_mongo(app)
+
     register_blueprints(app)
     register_error_handlers(app)
 

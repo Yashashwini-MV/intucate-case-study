@@ -4,6 +4,9 @@ import os
 class Config:
     """Base configuration."""
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+    MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+    MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "intucate")
+    MONGODB_ENABLED = True
 
 
 class DevelopmentConfig(Config):
@@ -14,6 +17,7 @@ class DevelopmentConfig(Config):
 class TestingConfig(Config):
     """Testing configuration."""
     TESTING = True
+    MONGODB_ENABLED = False
 
 
 class ProductionConfig(Config):
