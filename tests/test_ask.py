@@ -12,9 +12,10 @@ def client():
 
 
 class TestAskValidRequest:
+    @patch("app.routes.ask_routes.history_service")
     @patch("app.routes.ask_routes.openai_service")
     @patch("app.routes.ask_routes.prompt_service")
-    def test_returns_200_with_response(self, mock_prompt, mock_openai, client):
+    def test_returns_200_with_response(self, mock_prompt, mock_openai, mock_history, client):
         mock_prompt.build_prompt.return_value = "You are an expert in education domain. Answer the following: What is photosynthesis?"
         mock_openai.get_chat_response.return_value = "Photosynthesis is the process by which plants convert sunlight into energy."
 
@@ -25,9 +26,10 @@ class TestAskValidRequest:
         assert "response" in data
         assert "Photosynthesis" in data["response"]
 
+    @patch("app.routes.ask_routes.history_service")
     @patch("app.routes.ask_routes.openai_service")
     @patch("app.routes.ask_routes.prompt_service")
-    def test_passes_prompt_to_openai_service(self, mock_prompt, mock_openai, client):
+    def test_passes_prompt_to_openai_service(self, mock_prompt, mock_openai, mock_history, client):
         mock_prompt.build_prompt.return_value = "constructed prompt"
         mock_openai.get_chat_response.return_value = "answer"
 
@@ -36,15 +38,27 @@ class TestAskValidRequest:
         mock_prompt.build_prompt.assert_called_once_with("test input")
         mock_openai.get_chat_response.assert_called_once_with("constructed prompt")
 
+    @patch("app.routes.ask_routes.history_service")
     @patch("app.routes.ask_routes.openai_service")
     @patch("app.routes.ask_routes.prompt_service")
-    def test_passes_user_input_to_prompt_service(self, mock_prompt, mock_openai, client):
+    def test_passes_user_input_to_prompt_service(self, mock_prompt, mock_openai, mock_history, client):
         mock_prompt.build_prompt.return_value = "prompt"
         mock_openai.get_chat_response.return_value = "answer"
 
         client.post("/ask", json={"userInput": "my question"})
 
         mock_prompt.build_prompt.assert_called_once_with("my question")
+
+    @patch("app.routes.ask_routes.history_service")
+    @patch("app.routes.ask_routes.openai_service")
+    @patch("app.routes.ask_routes.prompt_service")
+    def test_saves_history_on_success(self, mock_prompt, mock_openai, mock_history, client):
+        mock_prompt.build_prompt.return_value = "prompt"
+        mock_openai.get_chat_response.return_value = "the answer"
+
+        client.post("/ask", json={"userInput": "What is gravity?"})
+
+        mock_history.save_history.assert_called_once_with("What is gravity?", "the answer")
 
 
 class TestAskMissingJson:
@@ -143,3 +157,18 @@ class TestAskOpenAIServiceError:
 
         assert response.status_code == 500
         assert "not configured" in response.get_json()["error"]
+
+
+class TestAskHistoryServiceError:
+    @patch("app.routes.ask_routes.history_service")
+    @patch("app.routes.ask_routes.openai_service")
+    @patch("app.routes.ask_routes.prompt_service")
+    def test_returns_500_when_history_save_fails(self, mock_prompt, mock_openai, mock_history, client):
+        mock_prompt.build_prompt.return_value = "prompt"
+        mock_openai.get_chat_response.return_value = "answer"
+        mock_history.save_history.side_effect = AppError("Failed to save history", status_code=500)
+
+        response = client.post("/ask", json={"userInput": "test"})
+
+        assert response.status_code == 500
+        assert "history" in response.get_json()["error"].lower()

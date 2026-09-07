@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from app.services import prompt_service, openai_service
+from app.services import prompt_service, openai_service, history_service
 from app.utils.errors import AppError
 
 ask_bp = Blueprint("ask", __name__)
@@ -32,6 +32,7 @@ def ask():
     try:
         prompt = prompt_service.build_prompt(user_input.strip())
         response_text = openai_service.get_chat_response(prompt)
+        history_service.save_history(user_input.strip(), response_text)
     except AppError as e:
         return jsonify({"error": e.message}), e.status_code
 
