@@ -12,12 +12,17 @@ intucate-case-study/
 │   ├── extensions.py            # Shared external clients/extensions (MongoDB)
 │   ├── routes/
 │   │   ├── __init__.py
-│   │   └── ask_routes.py        # API route blueprints
+│   │   └── ask_routes.py        # API route blueprints (/health, /ask, /ask/batch)
 │   ├── services/
-│   │   └── __init__.py          # Business/application logic
+│   │   ├── __init__.py
+│   │   ├── prompt_service.py    # Prompt construction logic
+│   │   ├── openai_service.py    # OpenAI API communication
+│   │   ├── history_service.py   # History orchestration
+│   │   └── batch_service.py     # Async batch processing
 │   ├── repositories/
 │   │   ├── __init__.py
-│   │   └── prompt_repository.py # MongoDB prompt data access
+│   │   ├── prompt_repository.py # MongoDB prompt data access
+│   │   └── history_repository.py# MongoDB history data access
 │   └── utils/
 │       ├── __init__.py
 │       └── errors.py            # Error handling utilities
@@ -27,10 +32,16 @@ intucate-case-study/
 ├── tests/
 │   ├── __init__.py
 │   ├── test_health.py           # Health endpoint tests
-│   └── test_prompt_repository.py # Prompt repository unit tests
+│   ├── test_ask.py              # /ask endpoint tests
+│   ├── test_batch.py            # /ask/batch endpoint tests
+│   ├── test_prompt_repository.py# Prompt repository unit tests
+│   ├── test_prompt_service.py   # Prompt service unit tests
+│   ├── test_history_repository.py# History repository unit tests
+│   └── test_history_service.py  # History service unit tests
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
+├── README.md
 ├── run.py
 └── pytest.ini
 ```
@@ -41,6 +52,7 @@ intucate-case-study/
 
 - Python 3.10+
 - MongoDB (local installation or [MongoDB Atlas](https://www.mongodb.com/atlas))
+- OpenAI API key
 
 ### Installation
 
@@ -60,18 +72,20 @@ copy .env.example .env  # Windows
 
 ### Environment Variables
 
-Edit `.env` with your MongoDB connection details:
+Edit `.env` with your configuration:
 
 ```
+SECRET_KEY=your-secret-key
 MONGODB_URI=mongodb://localhost:27017
 MONGODB_DATABASE=intucate
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-3.5-turbo
 ```
 
-For MongoDB Atlas, use your cluster connection string:
+For MongoDB Atlas:
 
 ```
 MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net
-MONGODB_DATABASE=intucate
 ```
 
 ### Seed the Education Prompt
@@ -99,12 +113,38 @@ python run.py
 
 The server starts at `http://127.0.0.1:5000`.
 
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| POST | `/ask` | Single prompt → OpenAI response |
+| POST | `/ask/batch` | Batch prompt → concurrent OpenAI responses |
+
+### POST /ask
+
+```json
+// Request
+{ "userInput": "What is Python?" }
+
+// Response
+{ "response": "Python is a high-level programming language..." }
+```
+
+### POST /ask/batch
+
+```json
+// Request
+{ "userInputs": ["What is Python?", "What is MongoDB?"] }
+
+// Response
+{ "responses": ["Python is...", "MongoDB is..."] }
+```
+
 ## Testing
 
 ```bash
 py -m pytest -v
 ```
 
-Unit tests for the prompt repository use mocked MongoDB and do not require a running database.
-
-Integration tests (if added later) will require a live MongoDB connection and will be clearly marked.
+All tests use mocked MongoDB and OpenAI — no live connections required.
