@@ -20,9 +20,12 @@ def get_chat_response(prompt):
     """Send a prompt to OpenAI and return the assistant's response text."""
     client = get_client()
 
+    from flask import current_app
+    model = current_app.config.get("OPENAI_MODEL", "gpt-3.5-turbo")
+
     try:
         completion = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
         )
         return completion.choices[0].message.content

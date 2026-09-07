@@ -8,6 +8,7 @@ class Config:
     MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "intucate")
     MONGODB_ENABLED = True
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 
 
 class DevelopmentConfig(Config):
